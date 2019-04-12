@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "vehicle-information-service",
+    "vehicle-information-service-client",
+]

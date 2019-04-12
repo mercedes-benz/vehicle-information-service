@@ -1,0 +1,36 @@
+[package]
+authors = ["olu@daimler.com"]
+description = "This is a client implementiaton for the Vehicle Information Service standard"
+documentation = "https://docs.rs/vehicle-information-service"
+license = "MIT"
+homepage = ""
+repository = ""
+edition = "2018"
+keywords = ["automotive", "vis", "vehicle", "car"]
+name = "vehicle-information-service-client"
+readme = "README.md"
+version = "1.1.2"
+
+[dependencies]
+futures-preview = { version = "0.3.0-alpha.13", features = ["compat"] }
+log = "0.4"
+serde = "1.0"
+serde_derive = "1.0"
+byteorder = "1.3"
+env_logger = "0.6"
+structopt = "0.2"
+tokio = "0.1"
+tokio-tcp = "0.1"
+websocket = "0.22"
+vehicle-information-service = { path = "../vehicle-information-service" }
+
+[dependencies.serde_json]
+version = "1.0"
+features = ["arbitrary_precision"]
+
+[dependencies.uuid]
+features = ["serde", "v4"]
+version = "0.7"
+
+[features]
+integration_tests = []

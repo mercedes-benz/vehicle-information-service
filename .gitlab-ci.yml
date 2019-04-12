@@ -1,0 +1,61 @@
+build-nightly:
+  image: rust:1.34
+  before_script:
+    - rustup default nightly-2019-03-23-x86_64-unknown-linux-gnu
+  script:
+    - cargo +nightly-2019-03-23 check
+  tags:
+    - x86_64
+    - docker
+
+static-analysis:
+  image: rust:1.34
+  before_script:
+    - rustup default nightly-2019-03-23-x86_64-unknown-linux-gnu
+    - rustup component add clippy --toolchain nightly-2019-03-23-x86_64-unknown-linux-gnu
+  script:
+    - cargo +nightly-2019-03-23 clippy
+  tags:
+    - x86_64
+    - docker
+
+test-coverage:
+  image: xd009642/tarpaulin:develop-nightly
+  script:
+    - cargo tarpaulin
+  tags:
+    - x86_64
+    - docker
+
+test:
+  image: rust:1.34
+  before_script:
+    - rustup default nightly-2019-03-23-x86_64-unknown-linux-gnu
+  script:
+    - cargo +nightly-2019-03-23 test --lib
+  tags:
+    - x86_64
+    - docker
+
+# Test code in comments
+test-doc:
+  image: rust:1.34
+  before_script:
+    - rustup default nightly-2019-03-23-x86_64-unknown-linux-gnu
+  script:
+    - cargo +nightly-2019-03-23 test --doc
+  tags:
+    - x86_64
+    - docker
+
+# Enforce that code has been formatted with rustfmt
+test-formatting:
+  image: rust:1.34
+  before_script:
+    - rustup default nightly-2019-03-23-x86_64-unknown-linux-gnu
+    - rustup component add rustfmt --toolchain nightly-2019-03-23-x86_64-unknown-linux-gnu
+  script:
+    - cargo fmt --all -- --check
+  tags:
+    - x86_64
+    - docker
