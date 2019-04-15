@@ -29,8 +29,8 @@ fn receive_subscribe() {
     }
 }
 
-async fn receive_subscribe_async() -> std::io::Result<(ReqID, SubscriptionID)> {
-    let client = await!(VISClient::connect("ws://127.0.0.1:14430".to_string()))?;
+async fn receive_subscribe_async() -> Result<(ReqID, SubscriptionID), VISClientError> {
+    let client = await!(VISClient::connect("ws://127.0.0.1:14430"))?;
     let mut sub_stream =
         await!(client.subscribe_raw("Private.Example.Interval".into(), None)).compat();
     let subscribe = await!(sub_stream.next()).expect("No next value");
@@ -63,7 +63,7 @@ fn receive_subscription_value() {
 }
 
 async fn receive_subscription_async() -> Result<(SubscriptionID, u32), VISClientError> {
-    let client = await!(VISClient::connect("ws://127.0.0.1:14430".to_string()))?;
+    let client = await!(VISClient::connect("ws://127.0.0.1:14430"))?;
     let mut sub_stream =
         await!(client.subscribe::<u32>("Private.Example.Interval".into(), None)).compat();
     let sub_interval = await!(sub_stream.next()).expect("No next value");

@@ -10,8 +10,8 @@ fn main() {
     rt.block_on(f).unwrap().expect("Failed to receive get");
 }
 
-async fn print_current_interval() -> std::io::Result<()> {
-    let client = await!(VISClient::connect("ws://127.0.0.1:14430".to_string()))?;
+async fn print_current_interval() -> Result<(), VISClientError> {
+    let client = await!(VISClient::connect("ws://127.0.0.1:14430"))?;
     let interval: u32 = await!(client.get("Private.Example.Interval".into()))?;
     println!("Interval: {}", interval);
     Ok(())

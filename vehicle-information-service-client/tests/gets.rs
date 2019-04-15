@@ -15,8 +15,8 @@ fn receive_get() {
     assert!(interval > 0);
 }
 
-async fn receive_get_async() -> std::io::Result<u64> {
-    let client = await!(VISClient::connect("ws://127.0.0.1:14430".to_string()))?;
+async fn receive_get_async() -> Result<u64, VISClientError> {
+    let client = await!(VISClient::connect("ws://127.0.0.1:14430"))?;
     let interval = await!(client.get("Private.Example.Interval".into()))?;
     Ok(interval)
 }

@@ -20,6 +20,7 @@ pub enum VISClientError {
     WebSocketError(WebSocketError),
     SerdeError(serde_json::Error),
     IoError(io::Error),
+    UrlParseError(url::ParseError),
     Other,
 }
 
@@ -41,6 +42,14 @@ impl From<io::Error> for VISClientError {
     }
 }
 
+impl From<url::ParseError> for VISClientError {
+    fn from(url_error: url::ParseError) -> Self {
+        VISClientError::UrlParseError(url_error)
+    }
+}
+
+type Result<T> = core::result::Result<T, VISClientError>;
+
 pub struct VISClient {
     #[allow(dead_code)]
     server_address: String,
@@ -48,15 +57,13 @@ pub struct VISClient {
 }
 
 impl VISClient {
-    pub async fn connect(server_address: String) -> io::Result<Self> {
-        let (client, _headers) = await!(ClientBuilder::new(&server_address)
-            .unwrap()
+    pub async fn connect(server_address: &str) -> Result<Self> {
+        let (client, _headers) = await!(ClientBuilder::new(server_address)?
             .async_connect_insecure()
-            .compat())
-        .unwrap();
-        debug!("Connected");
+            .compat())?;
+        debug!("Connected to: {}", server_address);
         Ok(Self {
-            server_address,
+            server_address: server_address.to_string(),
             client,
         })
     }
