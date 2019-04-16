@@ -4,7 +4,7 @@
 
 use futures::compat::*;
 use futures::StreamExt;
-use log::debug;
+use log::{debug, error};
 use serde::de::DeserializeOwned;
 use serde_json;
 use std::convert::Into;
@@ -69,48 +69,59 @@ impl VISClient {
     }
 
     /// Retrieve vehicle signals.
-    pub async fn get<T>(self, path: ActionPath) -> io::Result<T>
+    pub async fn get<T>(self, path: ActionPath) -> Result<T>
     where
         T: DeserializeOwned,
     {
         let request_id = ReqID::default();
         let get = Action::Get { path, request_id };
 
-        let get_msg = serde_json::to_string(&get).expect("Failed to serialize get");
+        let get_msg = serde_json::to_string(&get)?;
 
         let (sink, stream) = self.client.split();
 
-        await!(sink.send(OwnedMessage::Text(get_msg)).compat()).expect("Failed to send message");
+        await!(sink.send(OwnedMessage::Text(get_msg)).compat())?;
 
-        let mut get_stream = stream
+        let get_stream = stream
             .filter_map(|msg| {
                 debug!("VIS Message {:#?}", msg);
 
                 if let OwnedMessage::Text(txt) = msg {
                     let response = serde_json::from_str::<ActionSuccessResponse>(&txt)
-                        .expect("Failed to deserialize VIS response");
-                    if let ActionSuccessResponse::Get {
+                        .map_err(|err| {
+                            error!("Failed to deserialize response: {}, error: {}", txt, err)
+                        })
+                        .ok();
+
+                    if let Some(ActionSuccessResponse::Get {
                         request_id: resp_request_id,
                         value,
                         ..
-                    } = response
+                    }) = response
                     {
                         if request_id != resp_request_id {
                             return None;
                         }
 
                         return serde_json::from_value(value)
-                            .expect("Failed to deserialize GET Value");
+                            .map_err(|err| {
+                                error!(
+                                    "Failed to deserialize Value in `get` response: {}, error: {}",
+                                    txt, err
+                                )
+                            })
+                            .ok();
                     }
                     None
                 } else {
                     None
                 }
             })
-            .compat();
+            .compat()
+            .into_future();
 
-        let get_response = await!(get_stream.next());
-        Ok(get_response.unwrap().unwrap())
+        let (get_response, _stream) = await!(get_stream);
+        get_response.unwrap().map_err(Into::into)
     }
 
     /// Subscribe to the given path's vehicle signals.
