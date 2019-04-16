@@ -57,6 +57,7 @@ pub struct VISClient {
 }
 
 impl VISClient {
+    #[allow(clippy::needless_lifetimes)] // Clippy false positive
     pub async fn connect(server_address: &str) -> Result<Self> {
         let (client, _headers) = await!(ClientBuilder::new(server_address)?
             .async_connect_insecure()
