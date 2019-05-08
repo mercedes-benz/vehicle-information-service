@@ -3,8 +3,9 @@
 #![feature(await_macro, async_await)]
 
 use futures::compat::*;
+use futures::prelude::*;
 use futures::StreamExt;
-use log::{debug, error};
+use log::debug;
 use serde::de::DeserializeOwned;
 use serde_json;
 use std::convert::Into;
@@ -84,41 +85,44 @@ impl VISClient {
         await!(sink.send(OwnedMessage::Text(get_msg)).compat())?;
 
         let get_stream = stream
-            .filter_map(|msg| {
-                debug!("VIS Message {:#?}", msg);
-
+            .compat()
+            .map_err(Into::<VISClientError>::into)
+            // Filter Websocket text messages
+            .try_filter_map(|msg| {
                 if let OwnedMessage::Text(txt) = msg {
-                    let response = serde_json::from_str::<ActionSuccessResponse>(&txt)
-                        .map_err(|err| {
-                            error!("Failed to deserialize response: {}, error: {}", txt, err)
-                        })
-                        .ok();
-
-                    if let Some(ActionSuccessResponse::Get {
+                    future::ready(Ok(Some(txt)))
+                } else {
+                    future::ready(Ok(None))
+                }
+            })
+            // Deserialize
+            .and_then(|txt| {
+                future::ready(
+                    serde_json::from_str::<ActionSuccessResponse>(&txt).map_err(Into::into),
+                )
+            })
+            // Filter get responses
+            .try_filter_map(|response| {
+                match response {
+                    ActionSuccessResponse::Get {
                         request_id: resp_request_id,
                         value,
                         ..
-                    }) = response
-                    {
-                        if request_id != resp_request_id {
-                            return None;
-                        }
-
-                        return serde_json::from_value(value)
-                            .map_err(|err| {
-                                error!(
-                                    "Failed to deserialize Value in `get` response: {}, error: {}",
-                                    txt, err
-                                )
-                            })
-                            .ok();
-                    }
-                    None
-                } else {
-                    None
+                    } => future::ready(Ok(Some((resp_request_id, value)))),
+                    // No get response
+                    _ => future::ready(Ok(None)),
                 }
             })
-            .compat()
+            // Filter get responses that have correct request_id
+            .try_filter_map(|(resp_request_id, value)| {
+                if request_id != resp_request_id {
+                    return future::ready(Ok(None));
+                }
+
+                future::ready(Ok(Some(value)))
+            })
+            // Deserialize value of get response
+            .and_then(|value| future::ready(serde_json::from_value(value).map_err(Into::into)))
             .into_future();
 
         let (get_response, _stream) = await!(get_stream);
