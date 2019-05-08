@@ -13,6 +13,7 @@ use std::io;
 use std::sync::{Arc, Mutex};
 use tokio::prelude::{Sink, Stream};
 use tokio_tcp::TcpStream;
+use vehicle_information_service::api_error::ActionErrorResponse;
 use vehicle_information_service::api_type::*;
 use websocket::{ClientBuilder, OwnedMessage, WebSocketError};
 
@@ -22,6 +23,7 @@ pub enum VISClientError {
     SerdeError(serde_json::Error),
     IoError(io::Error),
     UrlParseError(url::ParseError),
+    VisError(ActionErrorResponse),
     Other,
 }
 
@@ -46,6 +48,12 @@ impl From<io::Error> for VISClientError {
 impl From<url::ParseError> for VISClientError {
     fn from(url_error: url::ParseError) -> Self {
         VISClientError::UrlParseError(url_error)
+    }
+}
+
+impl From<ActionErrorResponse> for VISClientError {
+    fn from(action_error: ActionErrorResponse) -> Self {
+        VISClientError::VisError(action_error)
     }
 }
 
@@ -97,9 +105,17 @@ impl VISClient {
             })
             // Deserialize
             .and_then(|txt| {
-                future::ready(
-                    serde_json::from_str::<ActionSuccessResponse>(&txt).map_err(Into::into),
-                )
+                let txt_err = txt.clone();
+                if let Ok(value) =serde_json::from_str::<ActionSuccessResponse>(&txt) {
+                    return future::ready(Ok(value));
+                }
+
+                // Attempt to deserialize a VIS error
+                let vis_error = serde_json::from_str::<ActionErrorResponse>(&txt_err);
+                match vis_error {
+                    Err(serde_error) => future::ready(Err(serde_error.into())),
+                    Ok(vis_error) => future::ready(Err(VISClientError::VisError(vis_error))),
+                }
             })
             // Filter get responses
             .try_filter_map(|response| {

@@ -16,7 +16,7 @@ use crate::unix_timestamp_ms;
 /// the server responds with an error number, reason and message.
 /// [Errors Doc](https://w3c.github.io/automotive/vehicle_data/vehicle_information_service.html#errors)
 ///
-#[derive(PartialEq, Eq, Debug, Serialize, Copy, Clone)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, Clone)]
 pub struct ActionError {
     ///
     /// HTTP Status Code Number.
@@ -25,12 +25,12 @@ pub struct ActionError {
     // Pre-defined string value that can be used to distinguish between errors that have the same code.
     /// e.g. user_token_expired, user_token_invalid
     ///
-    reason: &'static str,
+    reason: String,
     ///
     /// Message text describing the cause in more detail.
     /// e.g. User token has expired.
     ///
-    pub message: &'static str,
+    pub message: String,
 }
 
 unsafe impl Send for ActionError {}
@@ -40,8 +40,8 @@ impl ActionError {
     pub fn new(http_status_code: StatusCode, message: &'static str) -> Self {
         Self {
             number: http_status_code.as_u16(),
-            reason: http_status_code.canonical_reason().unwrap_or_default(),
-            message,
+            reason: http_status_code.canonical_reason().unwrap_or_default().to_string(),
+            message: message.to_string(),
         }
     }
 }
@@ -53,8 +53,9 @@ impl From<io::Error> for ActionError {
             number: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
             reason: StatusCode::INTERNAL_SERVER_ERROR
                 .canonical_reason()
-                .unwrap_or_default(),
-            message: "",
+                .unwrap_or_default()
+                .to_string(),
+            message: String::new(),
         }
     }
 }
@@ -63,13 +64,13 @@ impl From<StatusCode> for ActionError {
     fn from(status_code: StatusCode) -> Self {
         Self {
             number: status_code.as_u16(),
-            reason: status_code.canonical_reason().unwrap_or_default(),
-            message: "",
+            reason: status_code.canonical_reason().unwrap_or_default().to_string(),
+            message: String::new(),
         }
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(tag = "action")]
 #[serde(rename_all = "camelCase")]
 pub enum ActionErrorResponse {
@@ -256,8 +257,8 @@ impl From<KnownError> for ActionError {
     fn from(known_error: KnownError) -> Self {
         Self {
             number: known_error.0.as_u16(),
-            reason: known_error.1,
-            message: known_error.2,
+            reason: known_error.1.to_string(),
+            message: known_error.2.to_string(),
         }
     }
 }
