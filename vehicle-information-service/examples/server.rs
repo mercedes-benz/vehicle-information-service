@@ -12,7 +12,8 @@ extern crate structopt;
 
 use actix::prelude::*;
 use actix_web::server;
-use futures::stream::Stream;
+use futures::prelude::*;
+use futures_util::compat::Stream01CompatExt;
 use serde_json::json;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -75,12 +76,13 @@ fn main() {
             IntervalSignalSource::new(app.state().signal_manager_addr().clone());
         interval_signal_source.start();
 
-        // Use a [futures Stream](https://docs.rs/futures/0.1.26/futures/stream/trait.Stream.html) as a signal source.
+        // Use a [futures Stream](https://docs.rs/futures-preview/0.3.0-alpha.15/futures/prelude/trait.Stream.html) as a signal source.
         // This stream will provide data that can be retrieved via `get` and `subscribe`.
         // You must set up a vcan0 interface for this example.
         let can_id_stream = tokio_socketcan::CANSocket::open(&opt.can_interface)
             .unwrap()
-            .map(|frame| frame.id());
+            .compat()
+            .map_ok(|frame| frame.id());
 
         app.state().spawn_stream_signal_source(
             PATH_PRIVATE_EXAMPLE_SOCKETCAN_LAST_FRAME_ID.into(),

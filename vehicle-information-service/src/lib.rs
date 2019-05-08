@@ -12,6 +12,8 @@
 //! use actix::prelude::*;
 //! use actix_web::server;
 //! use futures::stream::Stream;
+//! use futures_util::try_stream::TryStreamExt;
+//! use futures_util::compat::Stream01CompatExt;
 //! use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 //! use tokio_socketcan;
 //!
@@ -31,7 +33,8 @@
 //!
 //!         let can_id_stream = tokio_socketcan::CANSocket::open("vcan0")
 //!             .expect("Failed to initialize CanSocket")
-//!             .map(|frame| frame.id());
+//!             .compat()
+//!             .map_ok(|frame| frame.id());
 //!
 //!         app.state()
 //!             .spawn_stream_signal_source(PATH_PRIVATE_EXAMPLE_SOCKETCAN_LAST_FRAME_ID.into(), can_id_stream);
@@ -47,6 +50,7 @@
 //!
 
 #![deny(clippy::all)]
+#![feature(async_await)]
 
 #[macro_use]
 extern crate log;

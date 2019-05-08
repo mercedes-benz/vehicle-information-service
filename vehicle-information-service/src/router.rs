@@ -2,7 +2,7 @@
 
 use actix::prelude::*;
 use actix_web::{middleware, ws, App};
-use futures::{Future, Stream};
+use futures::prelude::*;
 use http::status::StatusCode;
 use serde_json::{from_str, json, to_string};
 use uuid::Uuid;
@@ -227,28 +227,30 @@ impl AppState {
     }
 
     /// Spawn a new signal stream source. A signal stream will provide signal updates for the given path.
-    pub fn spawn_stream_signal_source<S>(&self, path: ActionPath, s: S)
+    pub fn spawn_stream_signal_source<St>(&self, path: ActionPath, s: St)
     where
-        S: Stream,
-        S: 'static,
-        <S as futures::stream::Stream>::Error: std::fmt::Debug,
-        <S as futures::stream::Stream>::Item: serde::ser::Serialize,
+        St: TryStream + Unpin,
+        St: 'static,
+        St::Ok: serde::Serialize,
+        St::Error: std::fmt::Debug,
     {
         let signal_manager_addr = self.signal_manager_addr.clone();
 
-        let stream_signal_source = s
-            .for_each(move |item| {
-                let update = UpdateSignal {
-                    path: ActionPath(path.to_string()),
-                    value: json!(item),
-                };
-                signal_manager_addr.do_send(update);
+        let stream_signal_source = s.try_for_each(move |item| {
+            let update = UpdateSignal {
+                path: ActionPath(path.to_string()),
+                value: json!(item),
+            };
+            signal_manager_addr.do_send(update);
 
-                Ok(())
-            })
-            .map_err(|e| warn!("Signal source stream error: {:?}", e));
+            futures::future::ready(Ok(()))
+        });
 
-        actix::spawn(stream_signal_source);
+        actix::spawn(
+            stream_signal_source
+                .map_err(|e| warn!("Signal source stream error: {:?}", e))
+                .compat(),
+        );
     }
 }
 
