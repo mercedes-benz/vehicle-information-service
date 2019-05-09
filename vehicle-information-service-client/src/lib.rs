@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-#![feature(await_macro, async_await)]
+#![feature(async_await)]
 
 use futures::compat::*;
 use futures::prelude::*;
@@ -68,9 +68,10 @@ pub struct VISClient {
 impl VISClient {
     #[allow(clippy::needless_lifetimes)] // Clippy false positive
     pub async fn connect(server_address: &str) -> Result<Self> {
-        let (client, _headers) = await!(ClientBuilder::new(server_address)?
+        let (client, _headers) = ClientBuilder::new(server_address)?
             .async_connect_insecure()
-            .compat())?;
+            .compat()
+            .await?;
         debug!("Connected to: {}", server_address);
         Ok(Self {
             server_address: server_address.to_string(),
@@ -90,7 +91,7 @@ impl VISClient {
 
         let (sink, stream) = self.client.split();
 
-        await!(sink.send(OwnedMessage::Text(get_msg)).compat())?;
+        sink.send(OwnedMessage::Text(get_msg)).compat().await?;
 
         let get_stream = stream
             .compat()
@@ -106,7 +107,7 @@ impl VISClient {
             // Deserialize
             .and_then(|txt| {
                 let txt_err = txt.clone();
-                if let Ok(value) =serde_json::from_str::<ActionSuccessResponse>(&txt) {
+                if let Ok(value) = serde_json::from_str::<ActionSuccessResponse>(&txt) {
                     return future::ready(Ok(value));
                 }
 
@@ -141,7 +142,7 @@ impl VISClient {
             .and_then(|value| future::ready(serde_json::from_value(value).map_err(Into::into)))
             .into_future();
 
-        let (get_response, _stream) = await!(get_stream);
+        let (get_response, _stream) = get_stream.await;
         get_response.unwrap().map_err(Into::into)
     }
 
@@ -164,7 +165,9 @@ impl VISClient {
 
         let (sink, stream) = self.client.split();
 
-        await!(sink.send(OwnedMessage::Text(subscribe_msg)).compat())
+        sink.send(OwnedMessage::Text(subscribe_msg))
+            .compat()
+            .await
             .expect("Failed to send message");
         stream
             .filter_map(|msg| {
@@ -201,7 +204,9 @@ impl VISClient {
 
         let subscribe_msg = serde_json::to_string(&subscribe).expect("Failed to serialize message");
 
-        await!(sink.send(OwnedMessage::Text(subscribe_msg)).compat())
+        sink.send(OwnedMessage::Text(subscribe_msg))
+            .compat()
+            .await
             .expect("Failed to send message");
 
         let subscription_id: Arc<Mutex<Option<SubscriptionID>>> = Default::default();
@@ -262,7 +267,9 @@ impl VISClient {
 
         let (sink, stream) = self.client.split();
 
-        await!(sink.send(OwnedMessage::Text(unsubscribe_all_msg)).compat())
+        sink.send(OwnedMessage::Text(unsubscribe_all_msg))
+            .compat()
+            .await
             .expect("Failed to send message");
 
         stream

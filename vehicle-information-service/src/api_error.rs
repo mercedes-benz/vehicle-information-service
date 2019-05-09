@@ -40,7 +40,10 @@ impl ActionError {
     pub fn new(http_status_code: StatusCode, message: &'static str) -> Self {
         Self {
             number: http_status_code.as_u16(),
-            reason: http_status_code.canonical_reason().unwrap_or_default().to_string(),
+            reason: http_status_code
+                .canonical_reason()
+                .unwrap_or_default()
+                .to_string(),
             message: message.to_string(),
         }
     }
@@ -64,7 +67,10 @@ impl From<StatusCode> for ActionError {
     fn from(status_code: StatusCode) -> Self {
         Self {
             number: status_code.as_u16(),
-            reason: status_code.canonical_reason().unwrap_or_default().to_string(),
+            reason: status_code
+                .canonical_reason()
+                .unwrap_or_default()
+                .to_string(),
             message: String::new(),
         }
     }

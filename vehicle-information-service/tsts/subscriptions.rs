@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 
-#![feature(async_await)]
+#![feature(async_await, await_macro)]
 
 use futures::compat::*;
 use futures::prelude::*;
 use runtime::native::Native;
 use vehicle_information_service::api_type::*;
 use vehicle_information_service_client::*;
+
 
 #[runtime::test(Native)]
 async fn receive_subscribe_async() -> Result<(), VISClientError> {
