@@ -50,7 +50,7 @@
 //!
 
 #![deny(clippy::all)]
-#![feature(async_await)]
+#![feature(async_await, allow_fail)]
 
 #[macro_use]
 extern crate log;

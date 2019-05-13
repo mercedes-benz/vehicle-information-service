@@ -11,6 +11,65 @@ use std::io;
 use crate::api_type::{ReqID, SubscriptionID};
 use crate::unix_timestamp_ms;
 
+#[cfg(test)]
+mod tests {
+    use crate::api_type::*;
+    use crate::api_error::*;
+
+    use http::status::StatusCode;
+    use serde_json;
+
+    #[test]
+    fn serialize_deserialize_action_error() {
+        let action_error: ActionError = StatusCode::INTERNAL_SERVER_ERROR.into();
+
+        let s_action_error = serde_json::to_string(&action_error).unwrap();
+        println!("{}", s_action_error);
+        let d_action_error = serde_json::from_str(&s_action_error).unwrap();
+        assert_eq!(action_error, d_action_error);
+    }
+
+    #[test]
+    #[allow_fail]
+    /// Allowed to fail until https://github.com/serde-rs/json/issues/505 is fixed
+    fn serialize_deserialize_error_response() {
+        let get_error_response = ActionErrorResponse::Get {
+            request_id: Default::default(),
+            error: StatusCode::INTERNAL_SERVER_ERROR.into(),
+            timestamp: std::u128::MAX,
+        };
+
+        let s_get_error_response = serde_json::to_string(&get_error_response).unwrap();
+        println!("{}", s_get_error_response);
+        let d_get_error_response: serde_json::Value = serde_json::from_str(&s_get_error_response).expect("From STR");
+        let d_get_error_response: ActionErrorResponse = serde_json::from_value(d_get_error_response).expect("From Value");
+        assert_eq!(get_error_response, d_get_error_response);
+    }
+
+    #[test]
+    fn serialize_deserialize_error_response_without_timestamp() {
+        let request_id = Default::default();
+        let error: ActionError = StatusCode::INTERNAL_SERVER_ERROR.into();
+
+        let get_error_response = ActionErrorResponse::Get {
+            request_id,
+            error: error.clone(),
+            timestamp: std::u128::MAX,
+        };
+
+        let s_get_error_response = serde_json::to_string(&get_error_response).unwrap();
+        println!("{}", s_get_error_response);
+        let d_get_error_response: serde_json::Value = serde_json::from_str(&s_get_error_response).expect("From STR");
+        let d_get_error_response: ActionErrorResponse = serde_json::from_value(d_get_error_response).expect("From Value");
+        if let ActionErrorResponse::Get { request_id: recv_request_id, error: recv_error, timestamp: _timestamp} = d_get_error_response {
+            assert_eq!(request_id, recv_request_id);
+            assert_eq!(error, recv_error);
+        } else {
+            panic!("Unexpected error response {}", d_get_error_response);
+        }
+    }
+}
+
 ///
 /// If there is an error with any of the client’s requests,
 /// the server responds with an error number, reason and message.
@@ -21,15 +80,18 @@ pub struct ActionError {
     ///
     /// HTTP Status Code Number.
     ///
-    number: u16,
+    #[serde(rename = "number")]
+    pub number: u16,
     // Pre-defined string value that can be used to distinguish between errors that have the same code.
     /// e.g. user_token_expired, user_token_invalid
     ///
-    reason: String,
+    #[serde(rename = "reason")]
+    pub reason: String,
     ///
     /// Message text describing the cause in more detail.
     /// e.g. User token has expired.
     ///
+    #[serde(rename = "message")]
     pub message: String,
 }
 
@@ -86,7 +148,11 @@ pub enum ActionErrorResponse {
     Authorize {
         #[serde(rename = "requestId")]
         request_id: ReqID,
+        #[serde(rename = "error")]
         error: ActionError,
+        /// can currently not be deserialized, serde_json arbitrary precision bug
+        /// https://github.com/serde-rs/json/issues/505
+        #[serde(skip_deserializing, rename = "timestamp")]
         timestamp: u128,
     },
     ///
@@ -96,17 +162,25 @@ pub enum ActionErrorResponse {
     GetMetadata {
         #[serde(rename = "requestId")]
         request_id: ReqID,
+        #[serde(rename = "error")]
         error: ActionError,
+        /// can currently not be deserialized, serde_json arbitrary precision bug
+        /// https://github.com/serde-rs/json/issues/505
+        #[serde(skip_deserializing, rename = "timestamp")]
         timestamp: u128,
     },
     ///
     /// Error response for failed GET request
-    /// [Get Doc]https://w3c.github.io/automotive/vehicle_data/vehicle_information_service.html#dfn-getrequest)
+    /// [Get Doc](https://w3c.github.io/automotive/vehicle_data/vehicle_information_service.html#dfn-getrequest)
     ///
     Get {
         #[serde(rename = "requestId")]
         request_id: ReqID,
+        #[serde(rename = "error")]
         error: ActionError,
+        /// can currently not be deserialized, serde_json arbitrary precision bug
+        /// https://github.com/serde-rs/json/issues/505
+        #[serde(skip_deserializing, rename = "timestamp")]
         timestamp: u128,
     },
     ///
@@ -116,7 +190,11 @@ pub enum ActionErrorResponse {
     Set {
         #[serde(rename = "requestId")]
         request_id: ReqID,
+        #[serde(rename = "error")]
         error: ActionError,
+        /// can currently not be deserialized, serde_json arbitrary precision bug
+        /// https://github.com/serde-rs/json/issues/505
+        #[serde(skip_deserializing, rename = "timestamp")]
         timestamp: u128,
     },
     ///
@@ -126,7 +204,11 @@ pub enum ActionErrorResponse {
     Subscribe {
         #[serde(rename = "requestId")]
         request_id: ReqID,
+        #[serde(rename = "error")]
         error: ActionError,
+        /// can currently not be deserialized, serde_json arbitrary precision bug
+        /// https://github.com/serde-rs/json/issues/505
+        #[serde(skip_deserializing, rename = "timestamp")]
         timestamp: u128,
     },
     ///
@@ -136,17 +218,25 @@ pub enum ActionErrorResponse {
     Subscription {
         #[serde(rename = "requestId")]
         request_id: ReqID,
+        #[serde(rename = "error")]
         error: ActionError,
+        /// can currently not be deserialized, serde_json arbitrary precision bug
+        /// https://github.com/serde-rs/json/issues/505
+        #[serde(skip_deserializing, rename = "timestamp")]
         timestamp: u128,
     },
     ///
     /// [Subscribe Doc](https://w3c.github.io/automotive/vehicle_data/vehicle_information_service.html#subscribe)
     ///
     SubscriptionNotification {
+        #[serde(rename = "error")]
         error: ActionError,
-        timestamp: u128,
         #[serde(rename = "subscriptionId")]
         subscription_id: SubscriptionID,
+        /// can currently not be deserialized, serde_json arbitrary precision bug
+        /// https://github.com/serde-rs/json/issues/505
+        #[serde(skip_deserializing, rename = "timestamp")]
+        timestamp: u128,
     },
     ///
     /// [Unsubscribe Doc](https://w3c.github.io/automotive/vehicle_data/vehicle_information_service.html#unsubscribe)
@@ -154,10 +244,14 @@ pub enum ActionErrorResponse {
     Unsubscribe {
         #[serde(rename = "requestId")]
         request_id: ReqID,
+        #[serde(rename = "error")]
         error: ActionError,
-        timestamp: u128,
         #[serde(rename = "subscriptionId")]
         subscription_id: SubscriptionID,
+        /// can currently not be deserialized, serde_json arbitrary precision bug
+        /// https://github.com/serde-rs/json/issues/505
+        #[serde(skip_deserializing, rename = "timestamp")]
+        timestamp: u128,
     },
     ///
     /// [Unsubscribe-All Doc](https://w3c.github.io/automotive/vehicle_data/vehicle_information_service.html#dfn-unsubscribeallreq)
@@ -165,7 +259,11 @@ pub enum ActionErrorResponse {
     UnsubscribeAll {
         #[serde(rename = "requestId")]
         request_id: ReqID,
+        #[serde(rename = "error")]
         error: ActionError,
+        /// can currently not be deserialized, serde_json arbitrary precision bug
+        /// https://github.com/serde-rs/json/issues/505
+        #[serde(skip_deserializing, rename = "timestamp")]
         timestamp: u128,
     },
 }

@@ -89,47 +89,61 @@ impl Default for ReqID {
     }
 }
 
-struct ReqIDVisitor;
 
-impl<'de> Visitor<'de> for ReqIDVisitor {
-    type Value = ReqID;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("an integer or a uuid")
-    }
-
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+/// Custom implementation because by spec it's not a JSON Number or JSON String(UUID)
+/// but a JSON string that contains an UUID or int
+impl<'de> Deserialize<'de> for ReqID {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        E: de::Error,
+        D: Deserializer<'de>,
     {
-        if let Ok(uuid) = uuid::Uuid::from_str(value) {
-            Ok(ReqID::ReqIDUUID(uuid))
-        } else if let Ok(number) = value.parse() {
-            Ok(ReqID::ReqIDInt(number))
-        } else {
-            Err(E::custom(format!(
-                "string is not a uuid nor an integer: {}",
-                value
-            )))
-        }
-    }
+        struct ReqIDVisitor;
 
-    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        if let Ok(uuid) = uuid::Uuid::from_str(&value) {
-            Ok(ReqID::ReqIDUUID(uuid))
-        } else if let Ok(number) = value.parse() {
-            Ok(ReqID::ReqIDInt(number))
-        } else {
-            Err(E::custom(format!(
-                "string is not a uuid nor an integer: {}",
-                value
-            )))
+        impl<'de> Visitor<'de> for ReqIDVisitor {
+            type Value = ReqID;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("an integer or a uuid")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                if let Ok(uuid) = uuid::Uuid::from_str(value) {
+                    Ok(ReqID::ReqIDUUID(uuid))
+                } else if let Ok(number) = value.parse() {
+                    Ok(ReqID::ReqIDInt(number))
+                } else {
+                    Err(E::custom(format!(
+                        "string is not a uuid nor an integer: {}",
+                        value
+                    )))
+                }
+            }
+
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                if let Ok(uuid) = uuid::Uuid::from_str(&value) {
+                    Ok(ReqID::ReqIDUUID(uuid))
+                } else if let Ok(number) = value.parse() {
+                    Ok(ReqID::ReqIDInt(number))
+                } else {
+                    Err(E::custom(format!(
+                        "string is not a uuid nor an integer: {}",
+                        value
+                    )))
+                }
+            }
         }
+
+        deserializer.deserialize_string(ReqIDVisitor)
     }
 }
+
+
 
 /// Custom implementation because by spec it's not a JSON Number or JSON String(UUID)
 /// but a JSON string that contains an UUID or int
@@ -142,17 +156,6 @@ impl Serialize for ReqID {
             ReqID::ReqIDInt(i) => serializer.serialize_str(&i.to_string()),
             ReqID::ReqIDUUID(u) => serializer.serialize_str(&u.to_string()),
         }
-    }
-}
-
-/// Custom implementation because by spec it's not a JSON Number or JSON String(UUID)
-/// but a JSON string that contains an UUID or int
-impl<'de> Deserialize<'de> for ReqID {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_string(ReqIDVisitor)
     }
 }
 

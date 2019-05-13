@@ -5,7 +5,7 @@
 use futures::compat::*;
 use futures::prelude::*;
 use futures::StreamExt;
-use log::debug;
+use log::{debug, error};
 use serde::de::DeserializeOwned;
 use serde_json;
 use std::convert::Into;
@@ -13,9 +13,11 @@ use std::io;
 use std::sync::{Arc, Mutex};
 use tokio::prelude::{Sink, Stream};
 use tokio_tcp::TcpStream;
-use vehicle_information_service::api_error::ActionErrorResponse;
 use vehicle_information_service::api_type::*;
 use websocket::{ClientBuilder, OwnedMessage, WebSocketError};
+
+pub use vehicle_information_service::api_error::ActionErrorResponse;
+pub use vehicle_information_service::api_type::{ActionPath, ReqID, SubscriptionID};
 
 #[derive(Debug)]
 pub enum VISClientError {
@@ -112,10 +114,28 @@ impl VISClient {
                 }
 
                 // Attempt to deserialize a VIS error
-                let vis_error = serde_json::from_str::<ActionErrorResponse>(&txt_err);
+                let vis_error: std::result::Result<serde_json::Value, _> =
+                    serde_json::from_str(&txt_err);
+                // Workaround for https://github.com/serde-rs/json/issues/505
+                // once this is fixed it should not be necessary to deserialize to Value first and then
+                // to the actual type
                 match vis_error {
-                    Err(serde_error) => future::ready(Err(serde_error.into())),
-                    Ok(vis_error) => future::ready(Err(VISClientError::VisError(vis_error))),
+                    Err(serde_error) => {
+                        error!("{}", serde_error);
+                        future::ready(Err(serde_error.into()))
+                    }
+                    Ok(vis_error) => {
+                        let vis_error = serde_json::from_value::<ActionErrorResponse>(vis_error);
+                        match vis_error {
+                            Err(serde_error) => {
+                                error!("{}", serde_error);
+                                future::ready(Err(serde_error.into()))
+                            }
+                            Ok(vis_error) => {
+                                future::ready(Err(VISClientError::VisError(vis_error)))
+                            }
+                        }
+                    }
                 }
             })
             // Filter get responses

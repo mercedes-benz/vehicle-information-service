@@ -23,7 +23,9 @@ serde_derive = "1.0"
 
 [dependencies.serde_json]
 version = "1.0"
-features = ["arbitrary_precision"]
+# u128 can currently not be deserialized using serde
+# Waiting for fix to https://github.com/serde-rs/json/issues/505
+# features = ["arbitrary_precision"]
 
 [dependencies.uuid]
 features = ["serde", "v4"]
