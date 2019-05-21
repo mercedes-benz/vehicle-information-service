@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 
 use actix::prelude::*;
-use actix_web::{middleware, ws, App};
+use actix_web::{web, HttpRequest};
+use actix_web_actors::ws;
+
 use futures::prelude::*;
 use http::status::StatusCode;
 use serde_json::{from_str, json, to_string};
@@ -31,7 +33,7 @@ impl ClientSession {
 }
 
 impl Actor for ClientSession {
-    type Context = ws::WebsocketContext<Self, AppState>;
+    type Context = ws::WebsocketContext<Self>;
 
     fn started(&mut self, _ctx: &mut Self::Context) {
         info!("Client {} started", self.client_connection_id);
@@ -196,6 +198,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ClientSession {
                 );
                 ctx.stop();
             }
+            ws::Message::Nop => (),
         }
     }
 }
@@ -254,25 +257,28 @@ impl AppState {
     }
 }
 
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            signal_manager_addr: SignalManager::start_default(),
+        }
+    }
+}
+
 pub struct Router {}
 
 fn ws_index(
-    r: &actix_web::HttpRequest<AppState>,
+    state: web::Data<AppState>,
+    r: HttpRequest,
+    stream: web::Payload,
 ) -> Result<actix_web::HttpResponse, actix_web::Error> {
-    let addr = r.state().signal_manager_addr.clone();
-    ws::start(r, ClientSession::new(addr))
+    let addr = state.signal_manager_addr.clone();
+    ws::start(ClientSession::new(addr), &r, stream)
 }
 
 impl Router {
     /// Create a new instance of a Router
-    pub fn start() -> App<AppState> {
-        let app_state = AppState {
-            signal_manager_addr: SignalManager::start_default(),
-        };
-
-        // bind to the server
-        App::with_state(app_state)
-            .middleware(middleware::Logger::default())
-            .resource("/", |r| r.method(http::Method::GET).f(ws_index))
+    pub fn configure_routes(cfg: &mut web::ServiceConfig) {
+        cfg.service(web::resource("/").route(web::get().to(ws_index)));
     }
 }

@@ -12,8 +12,11 @@ readme = "README.md"
 version = "1.1.2"
 
 [dependencies]
-actix = "0.7.9"
-actix-web = "0.7.19"
+actix = "0.8.2"
+actix-http= "0.2.0"
+actix-web = "1.0.0-rc"
+actix-web-actors = "1.0.0-beta.4"
+actix-service = "0.4.0"
 futures-preview = { version = "0.3.0-alpha.15", features = ["compat"] }
 futures-util-preview =  { version = "0.3.0-alpha.13", features = ["compat"] }
 http = "0.1"

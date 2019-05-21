@@ -13,7 +13,6 @@ use crate::unix_timestamp_ms;
 
 #[cfg(test)]
 mod tests {
-    use crate::api_type::*;
     use crate::api_error::*;
 
     use http::status::StatusCode;
@@ -41,8 +40,10 @@ mod tests {
 
         let s_get_error_response = serde_json::to_string(&get_error_response).unwrap();
         println!("{}", s_get_error_response);
-        let d_get_error_response: serde_json::Value = serde_json::from_str(&s_get_error_response).expect("From STR");
-        let d_get_error_response: ActionErrorResponse = serde_json::from_value(d_get_error_response).expect("From Value");
+        let d_get_error_response: serde_json::Value =
+            serde_json::from_str(&s_get_error_response).expect("From STR");
+        let d_get_error_response: ActionErrorResponse =
+            serde_json::from_value(d_get_error_response).expect("From Value");
         assert_eq!(get_error_response, d_get_error_response);
     }
 
@@ -59,9 +60,16 @@ mod tests {
 
         let s_get_error_response = serde_json::to_string(&get_error_response).unwrap();
         println!("{}", s_get_error_response);
-        let d_get_error_response: serde_json::Value = serde_json::from_str(&s_get_error_response).expect("From STR");
-        let d_get_error_response: ActionErrorResponse = serde_json::from_value(d_get_error_response).expect("From Value");
-        if let ActionErrorResponse::Get { request_id: recv_request_id, error: recv_error, timestamp: _timestamp} = d_get_error_response {
+        let d_get_error_response: serde_json::Value =
+            serde_json::from_str(&s_get_error_response).expect("From STR");
+        let d_get_error_response: ActionErrorResponse =
+            serde_json::from_value(d_get_error_response).expect("From Value");
+        if let ActionErrorResponse::Get {
+            request_id: recv_request_id,
+            error: recv_error,
+            timestamp: _timestamp,
+        } = d_get_error_response
+        {
             assert_eq!(request_id, recv_request_id);
             assert_eq!(error, recv_error);
         } else {

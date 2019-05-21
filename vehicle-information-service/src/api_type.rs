@@ -89,7 +89,6 @@ impl Default for ReqID {
     }
 }
 
-
 /// Custom implementation because by spec it's not a JSON Number or JSON String(UUID)
 /// but a JSON string that contains an UUID or int
 impl<'de> Deserialize<'de> for ReqID {
@@ -142,8 +141,6 @@ impl<'de> Deserialize<'de> for ReqID {
         deserializer.deserialize_string(ReqIDVisitor)
     }
 }
-
-
 
 /// Custom implementation because by spec it's not a JSON Number or JSON String(UUID)
 /// but a JSON string that contains an UUID or int
