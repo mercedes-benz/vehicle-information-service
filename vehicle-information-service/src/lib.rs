@@ -10,14 +10,14 @@
 //! extern crate log;
 //!
 //! use actix::prelude::*;
-//! use actix_web::server;
+//! use actix_web::{middleware, web, App, HttpResponse, HttpServer};
 //! use futures::stream::Stream;
 //! use futures_util::try_stream::TryStreamExt;
 //! use futures_util::compat::Stream01CompatExt;
 //! use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 //! use tokio_socketcan;
 //!
-//! use vehicle_information_service::{KnownError, Router, Set, SignalManager, UpdateSignal};
+//! use vehicle_information_service::{AppState, KnownError, Router, Set, SignalManager, UpdateSignal};
 //!
 //! const PATH_PRIVATE_EXAMPLE_SOCKETCAN_LAST_FRAME_ID: &str = "Private.Example.SocketCan.Last.Frame.Id";
 //!
@@ -28,17 +28,22 @@
 //!
 //!     let socket_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 14430);
 //!
-//!     server::new(|| {
-//!         let app = Router::start();
+//!     HttpServer::new(move || {
+//!         let app_state: AppState = Default::default();
 //!
 //!         let can_id_stream = tokio_socketcan::CANSocket::open("vcan0")
 //!             .expect("Failed to initialize CanSocket")
 //!             .compat()
 //!             .map_ok(|frame| frame.id());
 //!
-//!         app.state()
-//!             .spawn_stream_signal_source(PATH_PRIVATE_EXAMPLE_SOCKETCAN_LAST_FRAME_ID.into(), can_id_stream);
-//!         app
+//!         app_state
+//!           .spawn_stream_signal_source(PATH_PRIVATE_EXAMPLE_SOCKETCAN_LAST_FRAME_ID.into(), can_id_stream);
+//!
+//!         App::new()
+//!          .data(app_state)
+//!          .wrap(middleware::Logger::default())
+//!          .configure(Router::configure_routes)
+//!          .default_service(web::route().to(|| HttpResponse::NotFound()))
 //!     })
 //!     .bind(socket_addr)
 //!     .unwrap()
