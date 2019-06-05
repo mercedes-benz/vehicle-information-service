@@ -1,9 +1,9 @@
 build-nightly:
   image: rust:1.34
   before_script:
-    - rustup default nightly-2019-05-09-x86_64-unknown-linux-gnu
+    - rustup default nightly-2019-06-05-x86_64-unknown-linux-gnu
   script:
-    - cargo +nightly-2019-05-09 check
+    - cargo +nightly-2019-06-05 check
   tags:
     - x86_64
     - docker
@@ -11,10 +11,10 @@ build-nightly:
 static-analysis:
   image: rust:1.34
   before_script:
-    - rustup default nightly-2019-05-09-x86_64-unknown-linux-gnu
-    - rustup component add clippy --toolchain nightly-2019-05-09-x86_64-unknown-linux-gnu
+    - rustup default nightly-2019-06-05-x86_64-unknown-linux-gnu
+    - rustup component add clippy --toolchain nightly-2019-06-05-x86_64-unknown-linux-gnu
   script:
-    - cargo +nightly-2019-05-09 clippy
+    - cargo +nightly-2019-06-05 clippy
   tags:
     - x86_64
     - docker
@@ -30,9 +30,9 @@ test-coverage:
 test:
   image: rust:1.34
   before_script:
-    - rustup default nightly-2019-05-09-x86_64-unknown-linux-gnu
+    - rustup default nightly-2019-06-05-x86_64-unknown-linux-gnu
   script:
-    - cargo +nightly-2019-05-09 test --lib
+    - cargo +nightly-2019-06-05 test --lib
   tags:
     - x86_64
     - docker
@@ -41,9 +41,9 @@ test:
 test-doc:
   image: rust:1.34
   before_script:
-    - rustup default nightly-2019-05-09-x86_64-unknown-linux-gnu
+    - rustup default nightly-2019-06-05-x86_64-unknown-linux-gnu
   script:
-    - cargo +nightly-2019-05-09 test --doc
+    - cargo +nightly-2019-06-05 test --doc
   tags:
     - x86_64
     - docker
@@ -52,8 +52,8 @@ test-doc:
 test-formatting:
   image: rust:1.34
   before_script:
-    - rustup default nightly-2019-05-09-x86_64-unknown-linux-gnu
-    - rustup component add rustfmt --toolchain nightly-2019-05-09-x86_64-unknown-linux-gnu
+    - rustup default nightly-2019-06-05-x86_64-unknown-linux-gnu
+    - rustup component add rustfmt --toolchain nightly-2019-06-05-x86_64-unknown-linux-gnu
   script:
     - cargo fmt --all -- --check
   tags:
