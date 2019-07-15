@@ -4,8 +4,7 @@
 
 use futures::compat::*;
 use futures::prelude::*;
-use futures::StreamExt;
-use log::{debug, error};
+use log::{debug, error, warn};
 use serde::de::DeserializeOwned;
 use serde_json;
 use std::convert::Into;
@@ -101,16 +100,16 @@ impl VISClient {
             // Filter Websocket text messages
             .try_filter_map(|msg| {
                 if let OwnedMessage::Text(txt) = msg {
-                    future::ready(Ok(Some(txt)))
+                    future::ok(Some(txt))
                 } else {
-                    future::ready(Ok(None))
+                    future::ok(None)
                 }
             })
             // Deserialize
             .and_then(|txt| {
                 let txt_err = txt.clone();
                 if let Ok(value) = serde_json::from_str::<ActionSuccessResponse>(&txt) {
-                    return future::ready(Ok(value));
+                    return future::ok(value);
                 }
 
                 // Attempt to deserialize a VIS error
@@ -122,18 +121,16 @@ impl VISClient {
                 match vis_error {
                     Err(serde_error) => {
                         error!("{}", serde_error);
-                        future::ready(Err(serde_error.into()))
+                        future::err(serde_error.into())
                     }
                     Ok(vis_error) => {
                         let vis_error = serde_json::from_value::<ActionErrorResponse>(vis_error);
                         match vis_error {
                             Err(serde_error) => {
                                 error!("{}", serde_error);
-                                future::ready(Err(serde_error.into()))
+                                future::err(serde_error.into())
                             }
-                            Ok(vis_error) => {
-                                future::ready(Err(VISClientError::VisError(vis_error)))
-                            }
+                            Ok(vis_error) => future::err(VISClientError::VisError(vis_error)),
                         }
                     }
                 }
@@ -145,18 +142,18 @@ impl VISClient {
                         request_id: resp_request_id,
                         value,
                         ..
-                    } => future::ready(Ok(Some((resp_request_id, value)))),
+                    } => future::ok(Some((resp_request_id, value))),
                     // No get response
-                    _ => future::ready(Ok(None)),
+                    _ => future::ok(None),
                 }
             })
             // Filter get responses that have correct request_id
             .try_filter_map(|(resp_request_id, value)| {
                 if request_id != resp_request_id {
-                    return future::ready(Ok(None));
+                    return future::ok(None);
                 }
 
-                future::ready(Ok(Some(value)))
+                future::ok(Some(value))
             })
             // Deserialize value of get response
             .and_then(|value| future::ready(serde_json::from_value(value).map_err(Into::into)))
@@ -172,7 +169,7 @@ impl VISClient {
         self,
         path: ActionPath,
         filters: Option<Filters>,
-    ) -> impl Stream<Item = ActionSuccessResponse, Error = VISClientError> {
+    ) -> Result<impl TryStream<Ok = ActionSuccessResponse, Error = VISClientError>> {
         let request_id = ReqID::default();
         let subscribe = Action::Subscribe {
             path,
@@ -180,28 +177,26 @@ impl VISClient {
             request_id,
         };
 
-        let subscribe_msg =
-            serde_json::to_string(&subscribe).expect("Failed to serialize subscribe");
+        let subscribe_msg = serde_json::to_string(&subscribe)?;
 
         let (sink, stream) = self.client.split();
 
         sink.send(OwnedMessage::Text(subscribe_msg))
             .compat()
-            .await
-            .expect("Failed to send message");
-        stream
-            .filter_map(|msg| {
-                debug!("VIS Message {:#?}", msg);
-                if let OwnedMessage::Text(txt) = msg {
-                    Some(
-                        serde_json::from_str::<ActionSuccessResponse>(&txt)
-                            .expect("Failed to deserialize VIS response"),
-                    )
-                } else {
-                    None
+            .await?;
+
+        Ok(stream.compat().map_err(Into::into).try_filter_map(|msg| {
+            debug!("VIS Message {:#?}", msg);
+            if let OwnedMessage::Text(txt) = msg {
+                match serde_json::from_str::<ActionSuccessResponse>(&txt) {
+                    Ok(success_response) => future::ok(Some(success_response)),
+                    // propagate deserialize error to stream
+                    Err(serde_error) => future::err(serde_error.into()),
                 }
-            })
-            .map_err(Into::into)
+            } else {
+                future::ok(None)
+            }
+        }))
     }
 
     /// Subscribe to the given path's vehicle signals.
@@ -209,7 +204,7 @@ impl VISClient {
         self,
         path: ActionPath,
         filters: Option<Filters>,
-    ) -> impl Stream<Item = (SubscriptionID, T), Error = VISClientError>
+    ) -> Result<impl TryStream<Ok = (SubscriptionID, T), Error = VISClientError>>
     where
         T: DeserializeOwned,
     {
@@ -222,99 +217,112 @@ impl VISClient {
             request_id,
         };
 
-        let subscribe_msg = serde_json::to_string(&subscribe).expect("Failed to serialize message");
+        let subscribe_msg = serde_json::to_string(&subscribe)?;
 
+        // Send subscribe request to server
         sink.send(OwnedMessage::Text(subscribe_msg))
             .compat()
-            .await
-            .expect("Failed to send message");
+            .await?;
 
         let subscription_id: Arc<Mutex<Option<SubscriptionID>>> = Default::default();
 
-        stream
-            .filter_map(move |msg| {
+        Ok(stream
+            .compat()
+            .map_err::<VISClientError, _>(Into::into)
+            .try_filter_map(move |msg| {
                 debug!("VIS Message {:#?}", msg);
 
                 if let OwnedMessage::Text(txt) = msg {
-                    let action_success = serde_json::from_str::<ActionSuccessResponse>(&txt)
-                        .expect("Failed to deserialize VIS response");
-
-                    match action_success {
-                        ActionSuccessResponse::Subscribe {
+                    match serde_json::from_str::<ActionSuccessResponse>(&txt) {
+                        Ok(ActionSuccessResponse::Subscribe {
                             subscription_id: resp_subscription_id,
                             request_id: resp_request_id,
                             ..
-                        } => {
+                        }) => {
                             // Make sure this is actually the response to our subscription request
                             if resp_request_id != request_id {
-                                return None;
+                                return future::ok(None);
                             }
                             // Store subscription_id to make sure the stream only returns values based on this subscription
                             *subscription_id.lock().unwrap() = Some(resp_subscription_id);
-                            return None;
+                            return future::ok(None);
                         }
-                        ActionSuccessResponse::Subscription {
+                        Ok(ActionSuccessResponse::Subscription {
                             subscription_id: resp_subscription_id,
                             value,
                             ..
-                        } => {
+                        }) => {
                             if *subscription_id.lock().unwrap() != Some(resp_subscription_id) {
-                                return None;
+                                return future::ok(None);
                             }
 
-                            let stream_value = serde_json::from_value::<T>(value)
-                                .expect("Failed to deserialize subscription value");
-                            return Some((resp_subscription_id, stream_value));
+                            match serde_json::from_value::<T>(value) {
+                                Ok(stream_value) => {
+                                    future::ok(Some((resp_subscription_id, stream_value)))
+                                }
+                                // propagate deserialize error to stream
+                                Err(serde_error) => future::err(serde_error.into()),
+                            }
                         }
-                        _ => (),
+                        Ok(_) => future::ok(None),
+                        // propagate deserialize error to stream
+                        Err(serde_error) => future::err(serde_error.into()),
                     }
+                } else {
+                    future::ok(None)
                 }
-                None
             })
-            .map_err(Into::into)
+            .map_err(Into::into))
     }
 
     /// Subscribe to the given path's vehicle signals.
-    pub async fn unsubscribe_all<T>(self) -> impl Stream<Item = (), Error = VISClientError>
+    pub async fn unsubscribe_all<T>(self) -> Result<impl Stream<Item = (), Error = VISClientError>>
     where
         T: DeserializeOwned,
     {
         let request_id = ReqID::default();
         let unsubscribe_all = Action::UnsubscribeAll { request_id };
 
-        let unsubscribe_all_msg =
-            serde_json::to_string(&unsubscribe_all).expect("Failed to serialize message");
+        let unsubscribe_all_msg = serde_json::to_string(&unsubscribe_all)?;
 
         let (sink, stream) = self.client.split();
 
         sink.send(OwnedMessage::Text(unsubscribe_all_msg))
             .compat()
-            .await
-            .expect("Failed to send message");
+            .await?;
 
-        stream
+        Ok(stream
             .filter_map(move |msg| {
                 debug!("VIS Message {:#?}", msg);
 
                 if let OwnedMessage::Text(txt) = msg {
-                    let action_success = serde_json::from_str::<ActionSuccessResponse>(&txt)
-                        .expect("Failed to deserialize VIS response");
-                    if let ActionSuccessResponse::UnsubscribeAll {
-                        request_id: resp_request_id,
-                        ..
-                    } = action_success
-                    {
-                        if resp_request_id != request_id {
-                            return None;
-                        }
+                    let action_success = serde_json::from_str::<ActionSuccessResponse>(&txt);
 
-                        return Some(());
+                    match action_success {
+                        Ok(ActionSuccessResponse::UnsubscribeAll {
+                            request_id: resp_request_id,
+                            ..
+                        }) => {
+                            // Request id mismatch
+                            if resp_request_id != request_id {
+                                return None;
+                            }
+
+                            Some(())
+                        }
+                        Ok(_) => None,
+                        Err(serde_error) => {
+                            warn!(
+                                "Failed to deserialize stream response, error: {}",
+                                serde_error
+                            );
+                            None
+                        }
                     }
-                    None
                 } else {
                     None
                 }
             })
-            .map_err(Into::into)
+            .map_err(Into::into))
     }
 }
