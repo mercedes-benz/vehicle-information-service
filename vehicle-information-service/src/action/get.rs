@@ -5,10 +5,9 @@
 //!
 
 use actix::prelude::*;
-use http::StatusCode;
 
 use crate::action::ClientMessage;
-use crate::api_error::ActionErrorResponse;
+use crate::api_error::{ActionErrorResponse, NOT_FOUND_INVALID_PATH};
 use crate::api_type::{ActionPath, ActionSuccessResponse, ReqID};
 use crate::signal_manager::SignalManager;
 use crate::unix_timestamp_ms;
@@ -40,7 +39,7 @@ impl Handler<ClientMessage<Get>> for SignalManager {
             msg.client_addr.do_send(ActionErrorResponse::Get {
                 request_id: msg.message.request_id,
                 timestamp: unix_timestamp_ms(),
-                error: StatusCode::NOT_FOUND.into(),
+                error: NOT_FOUND_INVALID_PATH.into(),
             });
         }
     }

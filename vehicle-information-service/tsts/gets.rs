@@ -2,11 +2,22 @@
 
 #![feature(async_await, await_macro)]
 
+use actix_http::HttpService;
+use actix_http_test::TestServer;
+use actix_web::{web, App, HttpResponse};
+
 use runtime::native::Native;
 use vehicle_information_service_client::*;
 
 #[runtime::test(Native)]
 async fn receive_get_async() -> Result<(), VISClientError> {
+    let mut srv = TestServer::new(
+        || HttpService::new(
+            App::new().service(
+                web::resource("/").to(my_handler))
+        )
+    );
+
     let client = VISClient::connect("ws://127.0.0.1:14430").await?;
     let interval: u32 = client.get("Private.Example.Interval".into()).await?;
     assert!(interval > 0);

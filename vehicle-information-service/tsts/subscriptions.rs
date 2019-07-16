@@ -2,10 +2,12 @@
 
 #![feature(async_await, await_macro)]
 
+use futures::compat::*;
 use futures::prelude::*;
 use runtime::native::Native;
 use vehicle_information_service::api_type::*;
 use vehicle_information_service_client::*;
+
 
 #[runtime::test(Native)]
 async fn receive_subscribe_async() -> Result<(), VISClientError> {
@@ -13,10 +15,10 @@ async fn receive_subscribe_async() -> Result<(), VISClientError> {
     let mut sub_stream = client
         .subscribe_raw("Private.Example.Interval".into(), None)
         .await
-        .expect("Failed to subscribe");
-    let subscribe = sub_stream.try_next().await.expect("No next value");
+        .compat();
+    let subscribe = sub_stream.next().await.expect("No next value");
 
-    if let Some(ActionSuccessResponse::Subscribe {
+    if let Ok(ActionSuccessResponse::Subscribe {
         request_id,
         subscription_id,
         timestamp: _,
@@ -44,9 +46,9 @@ async fn receive_subscription_async() -> Result<(), VISClientError> {
     let mut sub_stream = client
         .subscribe::<u32>("Private.Example.Interval".into(), None)
         .await
-        .expect("Failed to subscribe");
-    let response = sub_stream.try_next().await.expect("No next value");
-    if let Some((subscription_id, interval)) = response {
+        .compat();
+    let response = sub_stream.next().await.expect("No next value");
+    if let Ok((subscription_id, interval)) = response {
         assert!(interval > 0);
         match subscription_id {
             SubscriptionID::SubscriptionIDUUID(uuid) => assert!(!uuid.is_nil()),

@@ -11,8 +11,9 @@ extern crate log;
 extern crate structopt;
 
 use actix::prelude::*;
-use actix_web::server;
-use futures::stream::Stream;
+use actix_web::{middleware, web, App, HttpResponse, HttpServer};
+use futures::prelude::*;
+use futures_util::compat::Stream01CompatExt;
 use serde_json::json;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -21,7 +22,7 @@ use std::time::Duration;
 use structopt::StructOpt;
 use tokio_socketcan;
 
-use vehicle_information_service::{KnownError, Router, Set, SignalManager, UpdateSignal};
+use vehicle_information_service::{AppState, KnownError, Router, Set, SignalManager, UpdateSignal};
 
 const PATH_PRIVATE_EXAMPLE_PRINT_SET: &str = "Private.Example.Print.Set";
 const PATH_PRIVATE_EXAMPLE_INTERVAL: &str = "Private.Example.Interval";
@@ -68,21 +69,22 @@ fn main() {
 
     info!("Starting server");
 
-    server::new(move || {
-        let app = Router::start();
+    HttpServer::new(move || {
+        let app_state: AppState = Default::default();
 
         let interval_signal_source =
-            IntervalSignalSource::new(app.state().signal_manager_addr().clone());
+            IntervalSignalSource::new(app_state.signal_manager_addr().clone());
         interval_signal_source.start();
 
-        // Use a [futures Stream](https://docs.rs/futures/0.1.26/futures/stream/trait.Stream.html) as a signal source.
+        // Use a [futures Stream](https://docs.rs/futures-preview/0.3.0-alpha.15/futures/prelude/trait.Stream.html) as a signal source.
         // This stream will provide data that can be retrieved via `get` and `subscribe`.
         // You must set up a vcan0 interface for this example.
         let can_id_stream = tokio_socketcan::CANSocket::open(&opt.can_interface)
             .unwrap()
-            .map(|frame| frame.id());
+            .compat()
+            .map_ok(|frame| frame.id());
 
-        app.state().spawn_stream_signal_source(
+        app_state.spawn_stream_signal_source(
             PATH_PRIVATE_EXAMPLE_SOCKETCAN_LAST_FRAME_ID.into(),
             can_id_stream,
         );
@@ -90,12 +92,16 @@ fn main() {
         // A set recipient will receive `set` requests for the given path.
         // You may then handle the signal value according to the path and value.
         let example_set = PrintSetRecipient::start_default();
-        app.state().add_set_recipient(
+        app_state.add_set_recipient(
             PATH_PRIVATE_EXAMPLE_PRINT_SET.into(),
             example_set.recipient().clone(),
         );
 
-        app
+        App::new()
+            .data(app_state)
+            .wrap(middleware::Logger::default())
+            .configure(Router::configure_routes)
+            .default_service(web::route().to(|| HttpResponse::NotFound()))
     })
     .bind(socket_addr)
     .unwrap()
