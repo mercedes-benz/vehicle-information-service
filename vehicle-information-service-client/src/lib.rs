@@ -243,7 +243,7 @@ impl VISClient {
                             }
                             // Store subscription_id to make sure the stream only returns values based on this subscription
                             *subscription_id.lock().unwrap() = Some(resp_subscription_id);
-                            return future::ok(None);
+                            future::ok(None)
                         }
                         Ok(ActionSuccessResponse::Subscription {
                             subscription_id: resp_subscription_id,

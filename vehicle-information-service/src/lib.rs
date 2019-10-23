@@ -21,36 +21,34 @@
 //!
 //! const PATH_PRIVATE_EXAMPLE_SOCKETCAN_LAST_FRAME_ID: &str = "Private.Example.SocketCan.Last.Frame.Id";
 //!
-//! fn main() {
-//!     env_logger::init();
+//! env_logger::init();
 //!
-//!     let sys = actix::System::new("vis-example");
+//! let sys = actix::System::new("vis-example");
 //!
-//!     let socket_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 14430);
+//! let socket_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 14430);
 //!
-//!     HttpServer::new(move || {
-//!         let app_state: AppState = Default::default();
+//! HttpServer::new(move || {
+//!   let app_state: AppState = Default::default();
 //!
-//!         let can_id_stream = tokio_socketcan::CANSocket::open("vcan0")
-//!             .expect("Failed to initialize CanSocket")
-//!             .compat()
-//!             .map_ok(|frame| frame.id());
+//!   let can_id_stream = tokio_socketcan::CANSocket::open("vcan0")
+//!          .expect("Failed to initialize CanSocket")
+//!          .compat()
+//!          .map_ok(|frame| frame.id());
 //!
-//!         app_state
-//!           .spawn_stream_signal_source(PATH_PRIVATE_EXAMPLE_SOCKETCAN_LAST_FRAME_ID.into(), can_id_stream);
+//!   app_state
+//!     .spawn_stream_signal_source(PATH_PRIVATE_EXAMPLE_SOCKETCAN_LAST_FRAME_ID.into(), can_id_stream);
 //!
-//!         App::new()
-//!          .data(app_state)
-//!          .wrap(middleware::Logger::default())
-//!          .configure(Router::configure_routes)
-//!          .default_service(web::route().to(|| HttpResponse::NotFound()))
-//!     })
-//!     .bind(socket_addr)
-//!     .unwrap()
-//!     .start();
+//!   App::new()
+//!     .data(app_state)
+//!     .wrap(middleware::Logger::default())
+//!     .configure(Router::configure_routes)
+//!     .default_service(web::route().to(|| HttpResponse::NotFound()))
+//!   })
+//!   .bind(socket_addr)
+//!   .unwrap()
+//!   .start();
 //!
-//!     let _ = sys.run();
-//! }
+//! let _ = sys.run();
 //!```
 //!
 
