@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-#![feature(async_await, await_macro)]
-
 use actix_http::HttpService;
 use actix_http_test::TestServer;
 use actix_web::{web, App, HttpResponse};

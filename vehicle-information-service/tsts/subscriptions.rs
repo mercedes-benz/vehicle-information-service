@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-#![feature(async_await, await_macro)]
-
 use futures::compat::*;
 use futures::prelude::*;
 use runtime::native::Native;

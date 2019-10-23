@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-#![feature(async_await, await_macro)]
-
 use runtime::native::Native;
 use vehicle_information_service_client::*;
 
