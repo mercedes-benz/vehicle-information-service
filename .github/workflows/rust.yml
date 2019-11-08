@@ -2,7 +2,7 @@
 
 on: [push, pull_request]
 
-name: Rust
+name: CI
 
 jobs:
   check:
@@ -12,11 +12,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v1
 
-      - name: Install nightly-2019-10-17 toolchain
+      - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2019-10-17
+          toolchain: stable
           override: true
 
       - name: Run cargo check
@@ -31,11 +31,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v1
 
-      - name: Install nightly-2019-10-17 toolchain
+      - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2019-10-17
+          toolchain: stable
           override: true
 
       - name: Run cargo test
@@ -51,11 +51,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v1
 
-      - name: Install nightly-2019-10-17 toolchain
+      - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2019-10-17
+          toolchain: stable
           override: true
           components: rustfmt, clippy
 

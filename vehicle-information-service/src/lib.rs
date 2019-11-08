@@ -53,7 +53,6 @@
 //!
 
 #![deny(clippy::all)]
-#![feature(allow_fail)]
 
 #[macro_use]
 extern crate log;

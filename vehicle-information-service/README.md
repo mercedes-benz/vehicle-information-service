@@ -66,7 +66,7 @@ sudo modprobe vcan && \
   sudo ip link set up vcan0
 
 # Run executable
-RUST_LOG=debug cargo +nightly run --example server -- --port 14430 --can vcan0
+RUST_LOG=debug cargo run --example server -- --port 14430 --can vcan0
 ```
 
 ## Websocket Client
