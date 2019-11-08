@@ -2,7 +2,7 @@
 
 # Vehicle Information Service
 
-[![CI](https://github.com/Daimler/vehicle-information-service/workflows/rust/badge.svg)](https://github.com/Daimler/vehicle-information-service)
+[![CI](https://github.com/Daimler/vehicle-information-service/workflows/CI/badge.svg)](https://github.com/Daimler/vehicle-information-service)
 
 This is an implementation of the [Vehicle Information Service standard](https://w3c.github.io/automotive/vehicle_data/vehicle_information_service.html).
 
