@@ -28,9 +28,10 @@ mod tests {
         assert_eq!(action_error, d_action_error);
     }
 
-    #[test]
-    #[allow_fail]
+    // TODO reenable once serde is fixed
+    // #[test]
     /// Allowed to fail until https://github.com/serde-rs/json/issues/505 is fixed
+    #[allow(dead_code)]
     fn serialize_deserialize_error_response() {
         let get_error_response = ActionErrorResponse::Get {
             request_id: Default::default(),
