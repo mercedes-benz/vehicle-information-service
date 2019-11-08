@@ -44,6 +44,15 @@ jobs:
           command: test
           args: --lib
 
+  security_audit:
+    name: Security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/audit-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   lints:
     name: Lints
     runs-on: ubuntu-18.04
