@@ -4,7 +4,6 @@ use futures::compat::*;
 use futures::prelude::*;
 use log::{debug, error, warn};
 use serde::de::DeserializeOwned;
-use serde_json;
 use std::convert::Into;
 use std::io;
 use std::sync::{Arc, Mutex};

@@ -11,7 +11,6 @@ use serde_json::{Number, Value};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
-use uuid;
 
 #[cfg(test)]
 mod tests {
