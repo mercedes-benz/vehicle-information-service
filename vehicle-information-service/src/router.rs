@@ -81,19 +81,19 @@ impl Handler<ActionErrorResponse> for ClientSession {
     }
 }
 
-impl StreamHandler<ws::Message, ws::ProtocolError> for ClientSession {
-    fn handle(&mut self, msg: ws::Message, ctx: &mut Self::Context) {
+impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ClientSession {
+    fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         debug!("WS: {:?}", msg);
         match msg {
-            ws::Message::Ping(msg) => {
-                debug!("Responding to `Ping` message: {} with Pong", msg);
+            Ok(ws::Message::Ping(msg)) => {
+                debug!("Responding to `Ping` message: {:?} with Pong", msg);
                 ctx.pong(&msg);
             }
-            ws::Message::Pong(_) => {}
-            ws::Message::Binary(_bin) => {
+            Ok(ws::Message::Pong(_)) => {}
+            Ok(ws::Message::Binary(_bin)) => {
                 warn!("Binary message payload. This message will be ignored.");
             }
-            ws::Message::Text(ref txt) => {
+            Ok(ws::Message::Text(ref txt)) => {
                 // deserialize and dispatch VIS action
 
                 match from_str::<Action>(txt) {
@@ -191,14 +191,19 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ClientSession {
                     }
                 };
             }
-            ws::Message::Close(close_reason) => {
+            Ok(ws::Message::Close(close_reason)) => {
                 info!(
                     "Client {} sent Close message, reason: {:?}",
                     self.client_connection_id, close_reason
                 );
                 ctx.stop();
             }
-            ws::Message::Nop => (),
+            Ok(ws::Message::Nop) => ctx.stop(),
+            Ok(ws::Message::Continuation(_)) => ctx.stop(),
+            Err(err) => {
+                error!("Message error: {}", err);
+                ctx.stop();
+            }
         }
     }
 }
@@ -239,21 +244,19 @@ impl AppState {
     {
         let signal_manager_addr = self.signal_manager_addr.clone();
 
-        let stream_signal_source = s.try_for_each(move |item| {
-            let update = UpdateSignal {
-                path: ActionPath(path.to_string()),
-                value: json!(item),
-            };
-            signal_manager_addr.do_send(update);
+        let stream_signal_source = s
+            .map_err(|e| warn!("Signal source stream error: {:?}", e))
+            .for_each(move |item| {
+                let update = UpdateSignal {
+                    path: ActionPath(path.to_string()),
+                    value: json!(item),
+                };
+                signal_manager_addr.do_send(update);
 
-            futures::future::ready(Ok(()))
-        });
+                futures::future::ready(())
+            });
 
-        actix::spawn(
-            stream_signal_source
-                .map_err(|e| warn!("Signal source stream error: {:?}", e))
-                .compat(),
-        );
+        actix::spawn(stream_signal_source);
     }
 }
 
@@ -267,7 +270,7 @@ impl Default for AppState {
 
 pub struct Router {}
 
-fn ws_index(
+async fn ws_index(
     state: web::Data<AppState>,
     r: HttpRequest,
     stream: web::Payload,

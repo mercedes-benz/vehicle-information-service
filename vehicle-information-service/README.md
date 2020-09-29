@@ -29,10 +29,9 @@ use vehicle_information_service::{KnownError, Router, Set, SignalManager, Update
 
 const PATH_PRIVATE_EXAMPLE_SOCKETCAN_LAST_FRAME_ID: &str = "Private.Example.SocketCan.Last.Frame.Id";
 
-fn main() {
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
     env_logger::init();
-
-    let sys = actix::System::new("vis-example");
 
     let socket_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 14430);
 
@@ -46,11 +45,9 @@ fn main() {
         app.state()
             .spawn_stream_signal_source(PATH_PRIVATE_EXAMPLE_SOCKETCAN_LAST_FRAME_ID.into(), can_id_stream);
     })
-    .bind(socket_addr)
-    .unwrap()
-    .start();
-
-    let _ = sys.run();
+    .bind(socket_addr)?
+    .run()
+    .await
 }
 ```
 
