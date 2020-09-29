@@ -58,10 +58,9 @@ struct Opt {
 /// { "action": "Subscribe", "path": "Private.Example.Interval", "requestId": 104 }
 /// ```
 ///
-fn main() {
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
     env_logger::init();
-
-    let sys = actix::System::new("vis-server-example");
 
     let opt = Opt::from_args();
 
@@ -103,11 +102,9 @@ fn main() {
             .configure(Router::configure_routes)
             .default_service(web::route().to(|| HttpResponse::NotFound()))
     })
-    .bind(socket_addr)
-    .unwrap()
-    .start();
-
-    let _ = sys.run();
+    .bind(socket_addr)?
+    .run()
+    .await
 }
 
 /// This demonstrates a signal source that implements an actor
