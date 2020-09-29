@@ -19,3 +19,12 @@ Please read our [Code of Conduct](https://github.com/Daimler/daimler-foss/blob/m
 # Provider Information
 
 Please visit <https://www.daimler-tss.com/en/imprint/> for information on the provider.
+
+# License Checks
+
+This project uses [cargo-deny](https://github.com/EmbarkStudios/cargo-deny) for checking the licenses of dependencies. To run the check locally run the following:
+
+```
+cargo install cargo-deny
+cargo deny check
+```
