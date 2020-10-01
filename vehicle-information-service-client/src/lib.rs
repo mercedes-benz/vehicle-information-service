@@ -7,6 +7,7 @@ use serde_json;
 use std::convert::Into;
 use std::io;
 use std::sync::{Arc, Mutex};
+use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message, WebSocketStream};
 use vehicle_information_service::api_type::*;
@@ -14,47 +15,19 @@ use vehicle_information_service::api_type::*;
 pub use vehicle_information_service::api_error::ActionErrorResponse;
 pub use vehicle_information_service::api_type::{ActionPath, ReqID, SubscriptionID};
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum VISClientError {
-    WebsocketError(tokio_tungstenite::tungstenite::Error),
-    SerdeError(serde_json::Error),
-    IoError(io::Error),
-    UrlParseError(url::ParseError),
-    VisError(ActionErrorResponse),
-    Other,
+    #[error("WebSocket error")]
+    WebsocketError(#[from] tokio_tungstenite::tungstenite::Error),
+    #[error("Serialization error")]
+    SerdeError(#[from] serde_json::Error),
+    #[error("IO error")]
+    IoError(#[from] io::Error),
+    #[error("Url parsing error")]
+    UrlParseError(#[from] url::ParseError),
+    #[error("VIS responded with error")]
+    VisError(#[from] ActionErrorResponse),
 }
-
-impl From<tokio_tungstenite::tungstenite::Error> for VISClientError {
-    fn from(websocket_error: tokio_tungstenite::tungstenite::Error) -> Self {
-        VISClientError::WebsocketError(websocket_error)
-    }
-}
-
-impl From<serde_json::Error> for VISClientError {
-    fn from(json_error: serde_json::Error) -> Self {
-        VISClientError::SerdeError(json_error)
-    }
-}
-
-impl From<io::Error> for VISClientError {
-    fn from(io_error: io::Error) -> Self {
-        VISClientError::IoError(io_error)
-    }
-}
-
-impl From<url::ParseError> for VISClientError {
-    fn from(url_error: url::ParseError) -> Self {
-        VISClientError::UrlParseError(url_error)
-    }
-}
-
-impl From<ActionErrorResponse> for VISClientError {
-    fn from(action_error: ActionErrorResponse) -> Self {
-        VISClientError::VisError(action_error)
-    }
-}
-
-type Result<T> = core::result::Result<T, VISClientError>;
 
 pub struct VISClient {
     #[allow(dead_code)]
@@ -65,7 +38,7 @@ pub struct VISClient {
 
 impl VISClient {
     #[allow(clippy::needless_lifetimes)] // Clippy false positive
-    pub async fn connect(server_address: &str) -> Result<Self> {
+    pub async fn connect(server_address: &str) -> Result<Self, VISClientError> {
         let (websocket_stream, _) = connect_async(server_address).await?;
         debug!("Connected to: {}", server_address);
         Ok(Self {
@@ -75,7 +48,7 @@ impl VISClient {
     }
 
     /// Retrieve vehicle signals.
-    pub async fn get<T>(self, path: ActionPath) -> Result<T>
+    pub async fn get<T>(self, path: ActionPath) -> Result<T, VISClientError>
     where
         T: DeserializeOwned,
     {
@@ -162,7 +135,8 @@ impl VISClient {
         self,
         path: ActionPath,
         filters: Option<Filters>,
-    ) -> Result<impl TryStream<Ok = ActionSuccessResponse, Error = VISClientError>> {
+    ) -> Result<impl TryStream<Ok = ActionSuccessResponse, Error = VISClientError>, VISClientError>
+    {
         let request_id = ReqID::default();
         let subscribe = Action::Subscribe {
             path,
@@ -195,7 +169,7 @@ impl VISClient {
         self,
         path: ActionPath,
         filters: Option<Filters>,
-    ) -> Result<impl TryStream<Ok = (SubscriptionID, T), Error = VISClientError>>
+    ) -> Result<impl TryStream<Ok = (SubscriptionID, T), Error = VISClientError>, VISClientError>
     where
         T: DeserializeOwned,
     {
@@ -264,7 +238,9 @@ impl VISClient {
     }
 
     /// Subscribe to the given path's vehicle signals.
-    pub async fn unsubscribe_all<T>(self) -> Result<impl Stream<Item = Result<()>>>
+    pub async fn unsubscribe_all<T>(
+        self,
+    ) -> Result<impl Stream<Item = Result<(), VISClientError>>, VISClientError>
     where
         T: DeserializeOwned,
     {
