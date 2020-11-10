@@ -289,9 +289,9 @@ pub trait ActionSourceable {
     fn source(self) -> (ActionPath, serde_json::Value);
 }
 
-impl<T: serde::Serialize> ActionSourceable for (ActionPath, T) {
+impl ActionSourceable for (ActionPath, serde_json::Value) {
     fn source(self) -> (ActionPath, serde_json::Value) {
-        (self.0, json!(self.1))
+        (self.0, self.1)
     }
 }
 
