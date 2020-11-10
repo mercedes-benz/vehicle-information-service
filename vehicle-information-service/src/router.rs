@@ -272,11 +272,13 @@ impl AppState {
 
         let stream_signal_source = s
             .map_err(|e| warn!("Signal source stream error: {:?}", e))
-            .for_each(move |item| {
-                if let Ok(item) = item {
-                    let (path, value) = item.source();
-                    let update = UpdateSignal { path, value };
-                    signal_manager_addr.do_send(update);
+            .for_each(move |items| {
+                if let Ok(items) = items {
+                    for item in items.source() {
+                        let (path, value) = item;
+                        let update = UpdateSignal { path, value };
+                        signal_manager_addr.do_send(update);
+                    }
                 }
                 futures::future::ready(())
             });
@@ -286,23 +288,18 @@ impl AppState {
 }
 
 pub trait ActionSourceable {
-    fn source(self) -> (ActionPath, serde_json::Value);
+    fn source(self) -> Vec<(ActionPath, serde_json::Value)>;
 }
 
 impl ActionSourceable for (ActionPath, serde_json::Value) {
-    fn source(self) -> (ActionPath, serde_json::Value) {
-        (self.0, self.1)
+    fn source(self) -> Vec<(ActionPath, serde_json::Value)> {
+        vec![self]
     }
 }
 
-pub struct ActionSource<T: serde::Serialize> {
-    pub path: ActionPath,
-    pub value: T,
-}
-
-impl<T: serde::Serialize> ActionSourceable for ActionSource<T> {
-    fn source(self) -> (ActionPath, serde_json::Value) {
-        (self.path, json!(self.value))
+impl ActionSourceable for Vec<(ActionPath, serde_json::Value)> {
+    fn source(self) -> Vec<(ActionPath, serde_json::Value)> {
+        self
     }
 }
 
