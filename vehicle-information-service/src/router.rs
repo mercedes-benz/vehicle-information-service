@@ -258,6 +258,52 @@ impl AppState {
 
         actix::spawn(stream_signal_source);
     }
+
+    /// Spawn a new signal stream source. A signal stream will provide signal updates for the given path.
+    pub fn spawn_stream_signal_source2<T, St>(&self, s: St)
+    where
+        T: serde::Serialize,
+        St: TryStream + Unpin,
+        St: 'static,
+        St::Ok: ActionSourceable,
+        St::Error: std::fmt::Debug,
+    {
+        let signal_manager_addr = self.signal_manager_addr.clone();
+
+        let stream_signal_source = s
+            .map_err(|e| warn!("Signal source stream error: {:?}", e))
+            .for_each(move |item| {
+                if let Ok(item) = item {
+                    let (path, value) = item.source();
+                    let update = UpdateSignal { path, value };
+                    signal_manager_addr.do_send(update);
+                }
+                futures::future::ready(())
+            });
+
+        actix::spawn(stream_signal_source);
+    }
+}
+
+pub trait ActionSourceable {
+    fn source(self) -> (ActionPath, serde_json::Value);
+}
+
+impl<T: serde::Serialize> ActionSourceable for (ActionPath, T) {
+    fn source(self) -> (ActionPath, serde_json::Value) {
+        (self.0, json!(self.1))
+    }
+}
+
+pub struct ActionSource<T: serde::Serialize> {
+    pub path: ActionPath,
+    pub value: T,
+}
+
+impl<T: serde::Serialize> ActionSourceable for ActionSource<T> {
+    fn source(self) -> (ActionPath, serde_json::Value) {
+        (self.path, json!(self.value))
+    }
 }
 
 impl Default for AppState {
