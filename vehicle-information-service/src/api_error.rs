@@ -7,6 +7,7 @@
 use http::status::StatusCode;
 use std::fmt;
 use std::io;
+use thiserror::Error;
 
 use crate::api_type::{ReqID, SubscriptionID};
 use crate::unix_timestamp_ms;
@@ -147,7 +148,7 @@ impl From<StatusCode> for ActionError {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Error)]
 #[serde(tag = "action")]
 #[serde(rename_all = "camelCase")]
 pub enum ActionErrorResponse {
